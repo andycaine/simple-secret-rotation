@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: A simple rotation function that rotates a secret key
+
+Parameters:
+  SecretArn:
+    Type: String
+    Description: The secret to rotate
+  ScheduleExpression:
+    Type: String
+    Default: rate(1 day)
+    Description: The schedule for the rotation.
+  Duration:
+    Type: String
+    Default: 1h
+    Description: The duration of the rotation.
+
+Globals:
+  Function:
+    LoggingConfig:
+      LogFormat: JSON
+      ApplicationLogLevel: INFO
+      SystemLogLevel: WARN
+      LogGroup: !Sub /apps/${AWS::StackName}
+
+Resources:
+
+  LogGroup:
+    UpdateReplacePolicy: Delete
+    DeletionPolicy: Delete
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /apps/${AWS::StackName}
+      RetentionInDays: 3
+
+  RotationFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ./rotation-function
+      Architectures: [arm64]
+      Timeout: 5
+      Handler: app.handler
+      Runtime: python3.12
+      MemorySize: 512
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:DescribeSecret
+                - secretsmanager:GetSecretValue
+                - secretsmanager:PutSecretValue
+                - secretsmanager:UpdateSecretVersionStage
+              Resource: !Ref SecretArn
+
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref RotationFunction
+      Principal: secretsmanager.amazonaws.com
+      SourceAccount: !Ref AWS::AccountId
+      SourceArn: !Ref SecretArn
+
+  RotationSchedule:
+    Type: AWS::SecretsManager::RotationSchedule
+    Properties:
+      SecretId: !Ref SecretArn
+      RotationLambdaARN: !GetAtt RotationFunction.Arn
+      RotationRules:
+        Duration: 1h
+        ScheduleExpression: !Ref ScheduleExpression

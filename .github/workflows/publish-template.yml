@@ -1,0 +1,31 @@
+name: Publish template
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  id-token: write  # required for requesting the JWT
+  contents: write   # required for actions/checkout
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Git clone
+      uses: actions/checkout@v4
+    - name: AWS login
+      uses: aws-actions/configure-aws-credentials@v3
+      with:
+        role-to-assume: arn:aws:iam::381491901281:role/cfn-assets-publisher-CfnAssetsPublisherRole-XcJfoWGHAY9o
+        role-session-name: github-publishing
+        aws-region: eu-west-2
+    - name: Publish app
+      run: |
+        make publish
+    - name: Create github release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          template.yaml
