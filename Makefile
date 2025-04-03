@@ -2,7 +2,7 @@ STACK_NAME := simple-secret-rotation
 SCHEDULE_EXPRESSION ?= rate(1 day)
 SECRET_ARN ?= arn:aws:secretsmanager:us-east-1:123456789012:secret:example-secret
 ASSETS_BUCKET ?= cfn-assets-repository-publicassetsbucket-lyi1yv8zzwxh
-VERSION := 1.0.0
+VERSION := 1.0.1
 
 .build:
 	mkdir -p $@
@@ -13,7 +13,7 @@ packaged.yaml: template.yaml
 		--s3-bucket $(ASSETS_BUCKET) \
 		--output-template-file $@
 
-publish: template.yaml
+publish: packaged.yaml
 	aws s3 cp $< s3://$(ASSETS_BUCKET)/$(STACK_NAME)-$(VERSION).yaml
 
 deploy: packaged.yaml
